@@ -1,0 +1,59 @@
+version: '3.7'
+
+services:
+
+  spark-master:
+    image: bitnami/spark:3.5.1
+    command: bin/spark-class org.apache.spark.deploy.master.Master
+    ports:
+      - 8080:8080
+      - 7077:7077
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "2GB"
+        reservations:
+          cpus: "1.0"
+          memory: "1GB"
+    volumes:
+      - ./conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./app:/app # persistent storage
+
+  spark-worker:
+    image: bitnami/spark:3.5.1
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    environment:
+      SPARK_MODE: worker
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_MASTER_URL: spark://spark-master:7077
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "2GB"
+        reservations:
+          cpus: "1.0"
+          memory: "1GB"
+    volumes:
+      - ./conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./app:/app # persistent storage
+
+  jupyter-local:
+    depends_on:
+      - spark-master
+    build: .
+    command: python -m jupyterlab --ip "0.0.0.0" --no-browser --NotebookApp.token=''
+    ports:
+      - 8888:8888
+    volumes:
+      - ./app:/app # persistent storage
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+
+volumes:
+  spark-logs:
+
